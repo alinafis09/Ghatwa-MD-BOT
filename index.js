@@ -1,94 +1,177 @@
-const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, Browsers, delay, makeCacheableSignalKeyStore } = require('@whiskeysockets/baileys');
-const pino = require('pino');
-const readline = require('readline');
-const fs = require('fs');
-const path = require('path');
+import makeWASocket, {
 
-const config = require('./config');
+  useMultiFileAuthState,
 
-const logger = pino({ level: 'silent' });
+  DisconnectReason,
+
+  Browsers,
+
+  delay,
+
+  makeCacheableSignalKeyStore
+
+} from "@whiskeysockets/baileys"
+
+import pino from "pino"
+
+import readline from "readline"
+
+import config from "./config.js"
+
+import main from "./main.js"
+
+/* ========= LOGGER ========= */
+
+const logger = pino({ level: "silent" })
+
+/* ========= TERMINAL QUESTION ========= */
 
 const question = (text) => {
-    const rl = readline.createInterface({
-        input: process.stdin,
-        output: process.stdout
-    });
-    return new Promise((resolve) => {
-        rl.question(text, (answer) => {
-            rl.close();
-            resolve(answer);
-        });
-    });
-};
 
-async function startBot() {
-    console.log('\n==========================================');
-    console.log('   WhatsApp Bot - Initialization');
-    console.log('==========================================\n');
+  const rl = readline.createInterface({
 
-    const { state, saveCreds } = await useMultiFileAuthState('./Botsession');
+    input: process.stdin,
 
-    const sock = makeWASocket({
-        logger,
-        printQRInTerminal: false,
-        auth: {
-            creds: state.creds,
-            keys: makeCacheableSignalKeyStore(state.keys, logger),
-        },
-        browser: Browsers.macOS("Chrome"),
-        markOnlineOnConnect: true
-    });
+    output: process.stdout
 
-    if (!sock.authState.creds.registered) {
-        console.log('\n--- Pairing Mode Activated ---');
-        const phoneNumber = await question('Enter your phone number with country code (e.g., 212624052666): ');
-        try {
-            console.log('\nRequesting pairing code...');
-            await delay(5000);
-            const code = await sock.requestPairingCode(phoneNumber.trim());
-            console.log('\n==========================================');
-            console.log(`   YOUR PAIRING CODE: ${code}`);
-            console.log('==========================================\n');
-            console.log('Instructions:');
-            console.log('1. Open WhatsApp on your phone.');
-            console.log('2. Go to Linked Devices > Link a Device.');
-            console.log('3. Select "Link with phone number instead".');
-            console.log('4. Enter the 8-character code shown above.\n');
-        } catch (e) {
-            console.error('\n❌ Error requesting pairing code:', e.message);
-        }
-    }
+  })
 
-    sock.ev.on('connection.update', async (update) => {
-        const { connection, lastDisconnect } = update;
-        if (connection === 'close') {
-            const shouldReconnect = (lastDisconnect.error)?.output?.statusCode !== DisconnectReason.loggedOut;
-            if (shouldReconnect) {
-                console.log('Connection closed. Reconnecting...');
-                startBot();
-            } else {
-                console.log('Logged out. Please delete the Botsession folder and restart.');
-            }
-        } else if (connection === 'open') {
-            console.log('\n✅ WhatsApp Bot is ONLINE and ready!');
-            
-            // Notify Owner
-            if (config.ownerNumber) {
-                const ownerJid = `${config.ownerNumber}@s.whatsapp.net`;
-                try {
-                    await sock.sendMessage(ownerJid, { text: "✅ البوت خدام دابا بنجاح!" });
-                    console.log(`Notification sent to owner: ${config.ownerNumber}`);
-                } catch (e) {
-                    console.error('Failed to notify owner:', e.message);
-                }
-            }
-        }
-    });
+  return new Promise(resolve => {
 
-    sock.ev.on('creds.update', saveCreds);
+    rl.question(text, answer => {
 
-    // Call main logic
-    require('./main.js')(sock);
+      rl.close()
+
+      resolve(answer)
+
+    })
+
+  })
+
 }
 
-startBot();
+/* ========= FORMAT UPTIME ========= */
+
+function formatUptime(ms) {
+
+  const s = Math.floor(ms / 1000)
+
+  const h = Math.floor(s / 3600)
+
+  const m = Math.floor((s % 3600) / 60)
+
+  const sec = s % 60
+
+  return `${h}h ${m}m ${sec}s`
+
+}
+
+/* ========= START BOT ========= */
+
+async function startBot() {
+
+  const startTime = Date.now()
+
+  const { state, saveCreds } = await useMultiFileAuthState("./Botsession")
+
+  const sock = makeWASocket({
+
+    logger,
+
+    printQRInTerminal: false,
+
+    auth: {
+
+      creds: state.creds,
+
+      keys: makeCacheableSignalKeyStore(state.keys, logger)
+
+    },
+
+    browser: Browsers.macOS("Chrome"),
+
+    markOnlineOnConnect: true
+
+  })
+
+  /* ========= PAIRING ========= */
+
+  if (!state.creds.registered && config.pairingCode) {
+
+    const phone = await question("📱 Enter phone number (2126xxxxxxx): ")
+
+    await delay(2000)
+
+    const code = await sock.requestPairingCode(phone.trim())
+
+    console.log("✅ PAIRING CODE:", code)
+
+  }
+
+  /* ========= UPDATE ABOUT (UPTIME) ========= */
+
+  setInterval(async () => {
+
+    if (!sock.user) return
+
+    const uptime = formatUptime(Date.now() - startTime)
+
+    try {
+
+      await sock.updateProfileStatus(
+
+        `🤖 ${config.botName}\n⏱ Uptime: ${uptime}`
+
+      )
+
+    } catch {}
+
+  }, 1000)
+
+  /* ========= CONNECTION EVENTS ========= */
+
+  sock.ev.on("connection.update", (update) => {
+
+    const { connection, lastDisconnect } = update
+
+    if (connection === "close") {
+
+      const shouldReconnect =
+
+        lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+
+      if (shouldReconnect) startBot()
+
+    }
+
+    if (connection === "open") {
+
+      console.log("✅ BOT ONLINE")
+
+      if (config.ownerNumber) {
+
+        const ownerJid = `${config.ownerNumber}@s.whatsapp.net`
+
+        sock.sendMessage(ownerJid, {
+
+          text: "✅ البوت خدام دابا بنجاح 🤖"
+
+        }).catch(() => {})
+
+      }
+
+    }
+
+  })
+
+  sock.ev.on("creds.update", saveCreds)
+
+  /* ========= LOAD COMMANDS ========= */
+
+  main(sock)
+
+}
+
+/* ========= RUN ========= */
+
+startBot()
