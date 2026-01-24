@@ -181,4 +181,5 @@ class MessageFormatter {
   }
 }
 
+export { MessageFormatter };
 export default new MessageFormatter();
