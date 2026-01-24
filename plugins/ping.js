@@ -33,15 +33,15 @@ export default {
     },
 
     /**
-     * Handler Function
+     * Handler Function - تم التصحيح
      */
-    handler: async ({ sock, msg, args, text, prefix, command, jid, send, reply }) => {
+    handler: async ({ sock, msg, args, text, prefix, command, jid, reply }) => {
         try {
             const startTime = performance.now();
             const mode = args[0]?.toLowerCase() || 'normal';
             
             // Send initial processing message
-            await reply(config.messages.wait);
+            await reply("⏳ *جاري فحص النظام...*");
             
             // Calculate ping time
             const pingTime = Math.round(performance.now() - startTime);
@@ -54,6 +54,7 @@ export default {
             switch (mode) {
                 case 'detailed':
                 case 'full':
+                case 'مفصل':
                 case 'كامل':
                     response = generateDetailedResponse(pingTime, stats);
                     break;
@@ -84,30 +85,21 @@ export default {
                     response = generateNormalResponse(pingTime, stats);
             }
             
-            // Send response with formatted message
-            await send(
-                jid,
-                response,
-                {
-                    title: getTitleByMode(mode),
-                    footer: `⚡ استجابة: ${pingTime}ms`,
-                    quoted: msg,
-                    showName: true
-                }
-            );
+            // Send response - استخدام reply بدلاً من send
+            await reply(response);
             
             // Log ping event
             logPingEvent(msg.sender, pingTime, mode);
             
         } catch (error) {
             console.error('❌ Ping command error:', error);
-            await reply(config.messages.error + `\n${error.message}`);
+            await reply(`❌ حدث خطأ:\n${error.message}`);
         }
     }
 };
 
 /**
- * 🛠️ Utility Functions
+ * 📊 Utility Functions
  */
 
 /**
@@ -193,8 +185,8 @@ async function getCPUUsage() {
         const startMeasure = process.cpuUsage();
         setTimeout(() => {
             const endMeasure = process.cpuUsage(startMeasure);
-            const total = (endMeasure.user + endMeasure.system) / 1000; // Convert to ms
-            const percentage = (total / (100 * 1000)) * 100; // Percentage
+            const total = (endMeasure.user + endMeasure.system) / 1000;
+            const percentage = (total / (100 * 1000)) * 100;
             resolve(percentage.toFixed(2));
         }, 100);
     });
@@ -307,22 +299,6 @@ function getMemoryStatus(percentage) {
 }
 
 /**
- * Get Title Based on Mode
- */
-function getTitleByMode(mode) {
-    const titles = {
-        normal: "⚡ فحص السرعة",
-        detailed: "📊 فحص مفصل",
-        server: "🖥️ معلومات الخادم",
-        memory: "💾 حالة الذاكرة",
-        network: "🌐 حالة الشبكة",
-        help: "📖 مساعدة البينغ"
-    };
-    
-    return titles[mode] || titles.normal;
-}
-
-/**
  * Response Generators
  */
 
@@ -335,23 +311,23 @@ function generateNormalResponse(pingTime, stats) {
 ${pingStatus} *سرعة الاستجابة:* ${pingTime}ms
 
 ${cpuStatus} *وحدة المعالجة:*
-  ▫️ الاستخدام: ${stats.cpu.usage}%
-  ▫️ النوى: ${stats.cpu.cores}
-  ▫️ النوع: ${stats.cpu.model.substring(0, 30)}...
+  ▸ الاستخدام: ${stats.cpu.usage}%
+  ▸ النوى: ${stats.cpu.cores}
+  ▸ النوع: ${stats.cpu.model.substring(0, 30)}...
 
 ${memoryStatus} *الذاكرة:*
-  ▫️ المستخدمة: ${stats.memory.used}
-  ▫️ الحرة: ${stats.memory.free}
-  ▫️ الإجمالي: ${stats.memory.total}
+  ▸ المستخدمة: ${stats.memory.used}
+  ▸ الحرة: ${stats.memory.free}
+  ▸ الإجمالي: ${stats.memory.total}
 
-🕐 *وقت التشغيل:*
-  ▫️ النظام: ${formatSeconds(stats.uptime.system)}
-  ▫️ العملية: ${formatSeconds(stats.uptime.process)}
+📐 *وقت التشغيل:*
+  ▸ النظام: ${formatSeconds(stats.uptime.system)}
+  ▸ العملية: ${formatSeconds(stats.uptime.process)}
 
 💡 *نصائح:*
-  ▫️ استخدم \`.ping detailed\` لمزيد من التفاصيل
-  ▫️ استخدم \`.ping server\` لمعلومات الخادم
-  ▫️ استخدم \`.ping memory\` لحالة الذاكرة
+  ▸ استخدم \`.ping detailed\` لمزيد من التفاصيل
+  ▸ استخدم \`.ping server\` لمعلومات الخادم
+  ▸ استخدم \`.ping memory\` لحالة الذاكرة
 `;
 }
 
@@ -368,15 +344,15 @@ function generateDetailedResponse(pingTime, stats) {
 ${pingStatus} *📊 تقرير مفصل للأداء*
 
 ⚡ *السرعة:*
-  ▫️ استجابة البوت: ${pingTime}ms
-  ▫️ سرعة المعالج: ${stats.cpu.speed}MHz
-  ▫️ وقت التشغيل: ${formatSeconds(stats.uptime.process)}
+  ▸ استجابة البوت: ${pingTime}ms
+  ▸ سرعة المعالج: ${stats.cpu.speed}MHz
+  ▸ وقت التشغيل: ${formatSeconds(stats.uptime.process)}
 
 ${cpuStatus} *🖥️ وحدة المعالجة المركزية:*
-  ▫️ الاستخدام: ${stats.cpu.usage}%
-  ▫️ عدد النوى: ${stats.cpu.cores}
-  ▫️ النموذج: ${stats.cpu.model}
-  ▫️ المعمارية: ${stats.cpu.architecture}
+  ▸ الاستخدام: ${stats.cpu.usage}%
+  ▸ عدد النوى: ${stats.cpu.cores}
+  ▸ النموذج: ${stats.cpu.model}
+  ▸ المعمارية: ${stats.cpu.architecture}
   
   📈 *معدل الحمل:*
     • 1 دقيقة: ${load1}
@@ -384,23 +360,23 @@ ${cpuStatus} *🖥️ وحدة المعالجة المركزية:*
     • 15 دقيقة: ${load15}
 
 ${memoryStatus} *💾 الذاكرة:*
-  ▫️ المستخدمة: ${stats.memory.used} (${stats.memory.percentage}%)
-  ▫️ الحرة: ${stats.memory.free}
-  ▫️ الإجمالية: ${stats.memory.total}
+  ▸ المستخدمة: ${stats.memory.used} (${stats.memory.percentage}%)
+  ▸ الحرة: ${stats.memory.free}
+  ▸ الإجمالية: ${stats.memory.total}
   
   📊 *عملية البوت:*
     • RSS: ${formatBytes(stats.process.memoryUsage.rss)}
     • Heap: ${formatBytes(stats.process.memoryUsage.heapUsed)}/${formatBytes(stats.process.memoryUsage.heapTotal)}
 
 🌐 *الشبكة:*
-  ▫️ المضيف: ${stats.platform.hostname}
-  ▫️ النظام: ${stats.platform.type} ${stats.platform.release}
-  ▫️ المنافذ: ${Object.keys(stats.network).length} واجهة
+  ▸ المضيف: ${stats.platform.hostname}
+  ▸ النظام: ${stats.platform.type} ${stats.platform.release}
+  ▸ المنافذ: ${Object.keys(stats.network).length} واجهة
 
 📦 *بيئة التشغيل:*
-  ▫️ Node.js: ${stats.node.version}
-  ▫️ V8 Engine: ${stats.node.v8}
-  ▫️ معرف العملية: ${stats.node.pid}
+  ▸ Node.js: ${stats.node.version}
+  ▸ V8 Engine: ${stats.node.v8}
+  ▸ معرف العملية: ${stats.node.pid}
 `;
 }
 
@@ -412,35 +388,35 @@ function generateServerResponse(stats) {
 🖥️ *معلومات الخادم المفصلة*
 
 ${cpuStatus} *مواصفات الخادم:*
-  ▫️ المعالج: ${stats.cpu.model}
-  ▫️ النوى: ${stats.cpu.cores} نواة
-  ▫️ السرعة: ${stats.cpu.speed}MHz
-  ▫️ الاستخدام الحالي: ${stats.cpu.usage}%
-  ▫️ المعمارية: ${stats.cpu.architecture}
+  ▸ المعالج: ${stats.cpu.model}
+  ▸ النوى: ${stats.cpu.cores} نواة
+  ▸ السرعة: ${stats.cpu.speed}MHz
+  ▸ الاستخدام الحالي: ${stats.cpu.usage}%
+  ▸ المعمارية: ${stats.cpu.architecture}
 
 ${memoryStatus} *موارد النظام:*
-  ▫️ الذاكرة الكلية: ${stats.memory.total}
-  ▫️ الذاكرة المستخدمة: ${stats.memory.used}
-  ▫️ الذاكرة الحرة: ${stats.memory.free}
-  ▫️ النسبة: ${stats.memory.percentage}%
+  ▸ الذاكرة الكلية: ${stats.memory.total}
+  ▸ الذاكرة المستخدمة: ${stats.memory.used}
+  ▸ الذاكرة الحرة: ${stats.memory.free}
+  ▸ النسبة: ${stats.memory.percentage}%
 
 💿 *مساحة التخزين:*
-  ${stats.disk.error ? `▫️ ${stats.disk.error}` : `
-  ▫️ الإجمالية: ${stats.disk.total}
-  ▫️ المستخدمة: ${stats.disk.used}
-  ▫️ الحرة: ${stats.disk.free}
-  ▫️ النسبة: ${stats.disk.percentage}`}
+  ${stats.disk.error ? `▸ ${stats.disk.error}` : `
+  ▸ الإجمالية: ${stats.disk.total}
+  ▸ المستخدمة: ${stats.disk.used}
+  ▸ الحرة: ${stats.disk.free}
+  ▸ النسبة: ${stats.disk.percentage}`}
 
 🌐 *معلومات الشبكة:*
-  ▫️ اسم المضيف: ${stats.platform.hostname}
-  ▫️ نظام التشغيل: ${stats.platform.type}
-  ▫️ الإصدار: ${stats.platform.release}
-  ▫️ الوقت: ${new Date().toLocaleString('ar-SA')}
+  ▸ اسم المضيف: ${stats.platform.hostname}
+  ▸ نظام التشغيل: ${stats.platform.type}
+  ▸ الإصدار: ${stats.platform.release}
+  ▸ الوقت: ${new Date().toLocaleString('ar-SA')}
 
 📊 *أحمال النظام:*
-  ▫️ 1 دقيقة: ${stats.load[0].toFixed(2)}
-  ▫️ 5 دقائق: ${stats.load[1].toFixed(2)}
-  ▫️ 15 دقيقة: ${stats.load[2].toFixed(2)}
+  ▸ 1 دقيقة: ${stats.load[0].toFixed(2)}
+  ▸ 5 دقائق: ${stats.load[1].toFixed(2)}
+  ▸ 15 دقيقة: ${stats.load[2].toFixed(2)}
 `;
 }
 
@@ -456,25 +432,25 @@ function generateMemoryResponse(stats) {
     return `
 ${memoryStatus} *تحليل مفصل للذاكرة*
 
-📊 *إحصائيات الذاكرة:*
-  ▫️ النسبة: ${percentage}% ${bar}
-  ▫️ المستخدمة: ${stats.memory.used}
-  ▫️ الحرة: ${stats.memory.free}
-  ▫️ الإجمالية: ${stats.memory.total}
+📊 *إحصاءات الذاكرة:*
+  ▸ النسبة: ${percentage}% ${bar}
+  ▸ المستخدمة: ${stats.memory.used}
+  ▸ الحرة: ${stats.memory.free}
+  ▸ الإجمالية: ${stats.memory.total}
 
 🔍 *ذاكرة عملية البوت:*
-  ▫️ RSS: ${formatBytes(stats.process.memoryUsage.rss)}
-  ▫️ Heap Total: ${formatBytes(stats.process.memoryUsage.heapTotal)}
-  ▫️ Heap Used: ${formatBytes(stats.process.memoryUsage.heapUsed)}
-  ▫️ External: ${formatBytes(stats.process.memoryUsage.external)}
-  ▫️ Array Buffers: ${formatBytes(stats.process.memoryUsage.arrayBuffers)}
+  ▸ RSS: ${formatBytes(stats.process.memoryUsage.rss)}
+  ▸ Heap Total: ${formatBytes(stats.process.memoryUsage.heapTotal)}
+  ▸ Heap Used: ${formatBytes(stats.process.memoryUsage.heapUsed)}
+  ▸ External: ${formatBytes(stats.process.memoryUsage.external)}
+  ▸ Array Buffers: ${formatBytes(stats.process.memoryUsage.arrayBuffers)}
 
 📈 *تحليل الأداء:*
-  ▫️ استخدام الذاكرة: ${percentage < 70 ? '🟢 ممتاز' : percentage < 85 ? '🟡 جيد' : '🔴 مرتفع'}
-  ▫️ توصية: ${percentage > 85 ? 'تحتاج إلى تنظيف الذاكرة' : 'الحالة مستقرة'}
+  ▸ استخدام الذاكرة: ${percentage < 70 ? '🟢 ممتاز' : percentage < 85 ? '🟡 جيد' : '🔴 مرتفع'}
+  ▸ توصية: ${percentage > 85 ? 'تحتاج إلى تنظيف الذاكرة' : 'الحالة مستقرة'}
   
 💡 *نصائح التحسين:*
-  ${percentage > 85 ? '▫️ أعد تشغيل البوت لتنظيف الذاكرة\n  ▫️ قم بتقليل عدد الإضافات النشطة\n  ▫️ نظف الملفات المؤقتة' : '▫️ الحالة ممتازة، لا حاجة لإجراءات'}
+  ${percentage > 85 ? '▸ أعد تشغيل البوت لتنظيف الذاكرة\n  ▸ قم بتقليل عدد الإضافات النشطة\n  ▸ نظف الملفات المؤقتة' : '▸ الحالة ممتازة، لا حاجة لإجراءات'}
 `;
 }
 
@@ -490,7 +466,7 @@ function generateNetworkResponse(pingTime, stats) {
             .join('\n');
         
         if (addresses) {
-            networkInfo += `▫️ ${iface}:\n${addresses}\n`;
+            networkInfo += `▸ ${iface}:\n${addresses}\n`;
         }
     });
     
@@ -498,26 +474,26 @@ function generateNetworkResponse(pingTime, stats) {
 ${pingStatus} *تحليل الشبكة والأداء*
 
 ⚡ *سرعة الاستجابة:*
-  ▫️ Ping Time: ${pingTime}ms
-  ▫️ الحالة: ${pingTime < 100 ? 'ممتازة' : pingTime < 300 ? 'جيدة' : 'بطيئة'}
+  ▸ Ping Time: ${pingTime}ms
+  ▸ الحالة: ${pingTime < 100 ? 'ممتازة' : pingTime < 300 ? 'جيدة' : 'بطيئة'}
 
 🌐 *معلومات الشبكة:*
-${networkInfo || '  ▫️ لا توجد معلومات متاحة'}
+${networkInfo || '  ▸ لا توجد معلومات متاحة'}
 
 🖥️ *معلومات النظام:*
-  ▫️ نظام التشغيل: ${stats.platform.type}
-  ▫️ الإصدار: ${stats.platform.release}
-  ▫️ اسم المضيف: ${stats.platform.hostname}
+  ▸ نظام التشغيل: ${stats.platform.type}
+  ▸ الإصدار: ${stats.platform.release}
+  ▸ اسم المضيف: ${stats.platform.hostname}
 
-📡 *جودة الاتصال:*
-  ▫️ توصيات: ${pingTime > 500 ? 'تحقق من اتصال الإنترنت' : 'الاتصال ممتاز'}
-  ▫️ سرعة التحميل: ${estimateSpeed(pingTime)}
+🚀 *جودة الاتصال:*
+  ▸ توصيات: ${pingTime > 500 ? 'تحقق من اتصال الإنترنت' : 'الاتصال ممتاز'}
+  ▸ سرعة التحميل: ${estimateSpeed(pingTime)}
 `;
 }
 
 function generateHelpResponse(prefix) {
     return `
-📖 *أوامر فحص البينغ المتقدمة*
+📖 *أوامر فحص البينق المتقدمة*
 
 ${prefix}ping - فحص السرعة الأساسي
 ${prefix}ping detailed - فحص مفصل شامل
@@ -525,17 +501,17 @@ ${prefix}ping server - معلومات الخادم
 ${prefix}ping memory - تحليل الذاكرة
 ${prefix}ping network - حالة الشبكة
 
-🔍 *ماذا تفحص كل أمر:*
-▫️ *detailed*: سرعة + معالج + ذاكرة + شبكة + نظام
-▫️ *server*: مواصفات الخادم وموارده
-▫️ *memory*: تحليل مفصل لاستخدام الذاكرة
-▫️ *network*: سرعة الاتصال ومعلومات الشبكة
+🔍 *ماذا يفحص كل أمر:*
+▸ *detailed*: سرعة + معالج + ذاكرة + شبكة + نظام
+▸ *server*: مواصفات الخادم وموارده
+▸ *memory*: تحليل مفصل لاستخدام الذاكرة
+▸ *network*: سرعة الاتصال ومعلومات الشبكة
 
 💡 *نصائح:*
-▫️ Ping < 100ms: 🟢 ممتاز
-▫️ Ping 100-300ms: 🟡 جيد
-▫️ Ping 300-500ms: 🟠 مقبول
-▫️ Ping > 500ms: 🔴 بطيء
+▸ Ping < 100ms: 🟢 ممتاز
+▸ Ping 100-300ms: 🟡 جيد
+▸ Ping 300-500ms: 🟠 مقبول
+▸ Ping > 500ms: 🔴 بطيء
 
 ⚡ *لمزيد من الأوامر:* ${prefix}menu
 `;
@@ -545,7 +521,7 @@ ${prefix}ping network - حالة الشبكة
  * Helper Functions
  */
 function estimateSpeed(pingTime) {
-    if (pingTime < 50) return '🔵 فائق السرعة (أكثر من 100 ميجابت)';
+    if (pingTime < 50) return '🚀 فائقة السرعة (أكثر من 100 ميجابت)';
     if (pingTime < 100) return '🟢 عالي السرعة (50-100 ميجابت)';
     if (pingTime < 200) return '🟡 متوسط السرعة (20-50 ميجابت)';
     if (pingTime < 400) return '🟠 منخفض السرعة (5-20 ميجابت)';
@@ -589,12 +565,4 @@ async function logPingEvent(sender, pingTime, mode) {
     } catch (error) {
         // Silent fail for logging
     }
-}
-
-/**
- * Generate ASCII Progress Bar
- */
-function generateProgressBar(percentage, length = 20) {
-    const filled = Math.round((percentage / 100) * length);
-    return '█'.repeat(filled) + '░'.repeat(length - filled);
-    }
+                 }
