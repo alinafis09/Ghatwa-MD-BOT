@@ -1,7 +1,7 @@
 import config from "./config.js";
 import chalk from "chalk";
 
-class MessageFormatter {
+export class MessageFormatter {
   constructor() {
     this.botName = config.botName || "Ghatwa Bot";
     this.botEmoji = config.botEmoji || "🤖";
