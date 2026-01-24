@@ -1,152 +1,342 @@
-import fs from "fs";
-import path from "path";
-import { fileURLToPath, pathToFileURL } from "url";
 import config from "./config.js";
-import messageFormatter from "./message-formatter.js"; // <-- إضافة هذا
+import chalk from "chalk";
 
-/* ========= FIX __dirname ========= */
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+class MessageFormatter {
+  constructor() {
+    this.botName = config.botName || "Ghatwa Bot";
+    this.botEmoji = config.botEmoji || "🤖";
+    this.settings = config.messageSettings || {};
+  }
 
-export default async function main(sock) {
-  const plugins = new Map();
-  const pluginsDir = path.join(__dirname, "plugins");
+  /**
+   * تنسيق الرسائل مع اسم البوت
+   */
+  formatMessage(content, options = {}) {
+    const {
+      type = "normal",
+      title = null,
+      footer = this.settings.showFooter,
+      timestamp = this.settings.showTimestamp,
+      showName = this.settings.showNameInMessages
+    } = options;
 
-  /* ========= LOAD PLUGINS ========= */
-  async function loadPlugins() {
-    if (!fs.existsSync(pluginsDir)) {
-      fs.mkdirSync(pluginsDir, { recursive: true });
+    let formattedMessage = "";
+
+    // إضافة العنوان إذا موجود
+    if (title) {
+      formattedMessage += `✨ *${title}*\n\n`;
     }
-    
-    plugins.clear();
-    const files = fs.readdirSync(pluginsDir).filter(f => f.endsWith(".js"));
-    
-    for (const file of files) {
-      try {
-        const filePath = path.join(pluginsDir, file);
-        const fileUrl = pathToFileURL(filePath).href + `?v=${Date.now()}`;
-        const module = await import(fileUrl);
-        const plugin = module.default || module;
-        
-        if (plugin.command && typeof plugin.handler === "function") {
-          plugins.set(plugin.command.toLowerCase(), plugin);
-          console.log(`✅ Loaded plugin: ${plugin.command}`);
-        }
-      } catch (e) {
-        console.error(`❌ Plugin error (${file})`, e.message);
+
+    // إضافة اسم البوت في البداية
+    if (showName && type !== "simple") {
+      formattedMessage += `${this.botEmoji} *${this.botName}*\n`;
+      formattedMessage += "═".repeat(30) + "\n\n";
+    }
+
+    // إضافة المحتوى
+    formattedMessage += content;
+
+    // إضافة التذييل
+    if (footer && type !== "simple") {
+      formattedMessage += `\n\n${"─".repeat(25)}\n`;
+      formattedMessage += `_${this.settings.footerText || this.botName}_`;
+      
+      // إضافة الوقت إذا مطلوب
+      if (timestamp) {
+        const time = new Date().toLocaleTimeString("en-US", {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false
+        });
+        formattedMessage += ` • ${time}`;
       }
     }
+
+    return formattedMessage;
   }
 
-  await loadPlugins();
+  /**
+   * ⚡ تنسيق خاص لرسائل البينغ (الجديد)
+   */
+  formatPingMessage(content, pingTime, options = {}) {
+    const {
+      type = "ping",
+      title = "⚡ فحص السرعة",
+      footer = this.settings.showFooter,
+      timestamp = this.settings.showTimestamp,
+      showName = this.settings.showNameInMessages,
+      showStatus = true
+    } = options;
 
-  /* ========= ENHANCED SEND MESSAGE FUNCTION ========= */
-  async function sendFormattedMessage(jid, content, options = {}) {
-    try {
-      const {
-        type = "normal",
-        title = null,
-        quoted = null,
-        footer = true,
-        showName = true
-      } = options;
+    let formattedMessage = "";
 
-      // تنسيق الرسالة
-      const formattedContent = messageFormatter.formatMessage(content, {
-        type,
-        title,
-        footer,
-        showName
-      });
-
-      // إرسال الرسالة
-      const messageOptions = {
-        quoted: quoted
-      };
-
-      const result = await sock.sendMessage(jid, {
-        text: formattedContent
-      }, messageOptions);
-
-      // تسجيل في الكونسول
-      messageFormatter.logSentMessage(
-        "text",
-        jid,
-        content.substring(0, 100)
-      );
-
-      return result;
-    } catch (error) {
-      console.error("❌ Error sending message:", error.message);
-      throw error;
-    }
-  }
-
-  /* ========= ENHANCED MESSAGE HANDLER ========= */
-  sock.ev.on("messages.upsert", async ({ messages }) => {
-    const msg = messages?.[0];
-    if (!msg || !msg.message || msg.key.fromMe) return;
-
-    const text =
-      msg.message.conversation ||
-      msg.message.extendedTextMessage?.text ||
-      msg.message.imageMessage?.caption ||
-      "";
-
-    const prefix = config.prefix || ".";
-    if (!text.startsWith(prefix)) return;
-
-    const args = text.slice(prefix.length).trim().split(/\s+/);
-    const command = args.shift()?.toLowerCase();
-    const query = args.join(" ");
-    const jid = msg.key.remoteJid;
-    const plugin = plugins.get(command);
-
-    if (!plugin) {
-      // رد تلقائي إذا الأمر غير موجود
-      await sendFormattedMessage(
-        jid,
-        `الأمر \`${command}\` غير موجود.\n\n` +
-        `استخدم \`${prefix}menu\` لرؤية جميع الأوامر المتاحة.`,
-        {
-          type: "error",
-          title: "أمر غير معروف",
-          quoted: msg
-        }
-      );
-      return;
+    // إضافة العنوان
+    if (title) {
+      formattedMessage += `✨ *${title}*\n\n`;
     }
 
-    try {
-      // تمرير دالة sendFormattedMessage للإضافة
-      await plugin.handler({
-        sock,
-        msg,
-        query,
-        args,
-        jid,
-        send: sendFormattedMessage, // <-- تمرير الدالة المحسنة
-        config,
-        formatter: messageFormatter
-      });
-    } catch (e) {
-      console.error(`❌ Command error (${command})`, e);
+    // إضافة اسم البوت في البداية
+    if (showName && type !== "simple") {
+      formattedMessage += `${this.botEmoji} *${this.botName}*\n`;
+      formattedMessage += "═".repeat(30) + "\n\n";
+    }
+
+    // إضافة حالة البينغ إذا مطلوب
+    if (showStatus && pingTime !== undefined) {
+      let statusEmoji = "🟢";
+      let statusText = "ممتاز";
       
-      await sendFormattedMessage(
-        jid,
-        "حدث خطأ أثناء تنفيذ الأمر. يرجى المحاولة مرة أخرى.\n\n" +
-        "إذا استمر الخطأ، تواصل مع المطور.",
-        {
-          type: "error",
-          title: "خطأ في التنفيذ",
-          quoted: msg
-        }
-      );
+      if (pingTime >= 100 && pingTime < 300) {
+        statusEmoji = "🟡";
+        statusText = "جيد";
+      } else if (pingTime >= 300 && pingTime < 500) {
+        statusEmoji = "🟠";
+        statusText = "مقبول";
+      } else if (pingTime >= 500) {
+        statusEmoji = "🔴";
+        statusText = "بطيء";
+      }
+      
+      formattedMessage += `${statusEmoji} *سرعة الاستجابة:* ${pingTime}ms (${statusText})\n`;
+      formattedMessage += "─".repeat(30) + "\n\n";
     }
-  });
 
-  console.log("🚀 Main system ready with enhanced messaging");
-  
-  // إرجاع الدالة المحسنة للإرسال
-  return { sendFormattedMessage };
+    // إضافة المحتوى
+    formattedMessage += content;
+
+    // إضافة التذييل
+    if (footer && type !== "simple") {
+      formattedMessage += `\n\n${"─".repeat(25)}\n`;
+      formattedMessage += `_${this.settings.footerText || "🤖 نظام فحص السرعة"}_`;
+      
+      // إضافة الوقت إذا مطلوب
+      if (timestamp) {
+        const time = new Date().toLocaleTimeString("en-US", {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false
+        });
+        formattedMessage += ` • ${time}`;
+      }
+    }
+
+    return formattedMessage;
   }
+
+  /**
+   * 📊 تحليل البينغ وإرجاع معلومات (الجديد)
+   */
+  analyzePing(pingTime) {
+    const analysis = {
+      emoji: "🟢",
+      status: "ممتاز",
+      description: "الأداء في أفضل حالاته",
+      recommendation: "لا حاجة لأي إجراء"
+    };
+    
+    if (pingTime >= 100 && pingTime < 300) {
+      analysis.emoji = "🟡";
+      analysis.status = "جيد";
+      analysis.description = "الأداء مقبول ولا مشاكل كبيرة";
+      analysis.recommendation = "يمكنك المتابعة بشكل طبيعي";
+    } else if (pingTime >= 300 && pingTime < 500) {
+      analysis.emoji = "🟠";
+      analysis.status = "مقبول";
+      analysis.description = "هناك بعض التأخير ولكن يمكن التحمل";
+      analysis.recommendation = "فحص اتصال الإنترنت";
+    } else if (pingTime >= 500) {
+      analysis.emoji = "🔴";
+      analysis.status = "بطيء";
+      analysis.description = "أداء غير مقبول، هناك مشكلة";
+      analysis.recommendation = "تحقق من الخادم والاتصال";
+    }
+    
+    return analysis;
+  }
+
+  /**
+   * 📈 شريط التقدم للبينغ (الجديد)
+   */
+  pingProgressBar(pingTime, maxPing = 1000) {
+    const percentage = Math.min((pingTime / maxPing) * 100, 100);
+    const barLength = 20;
+    const filled = Math.round((percentage / 100) * barLength);
+    
+    let bar = "";
+    for (let i = 0; i < barLength; i++) {
+      if (i < filled) {
+        if (pingTime < 100) bar += "🟩";
+        else if (pingTime < 300) bar += "🟨";
+        else if (pingTime < 500) bar += "🟧";
+        else bar += "🟥";
+      } else {
+        bar += "⬜";
+      }
+    }
+    
+    return `${bar} ${Math.round(percentage)}%`;
+  }
+
+  /**
+   * ⚡ تلوين البينغ حسب القيمة (الجديد)
+   */
+  colorCodePing(pingTime) {
+    if (pingTime < 100) return `🟢 ${pingTime}ms`;
+    if (pingTime < 300) return `🟡 ${pingTime}ms`;
+    if (pingTime < 500) return `🟠 ${pingTime}ms`;
+    return `🔴 ${pingTime}ms`;
+  }
+
+  /**
+   * 🎯 تنسيق وقت البينغ (الجديد)
+   */
+  formatPingTime(ms) {
+    if (ms < 1000) return `${ms}ms`;
+    const seconds = (ms / 1000).toFixed(2);
+    return `${seconds} ثانية`;
+  }
+
+  /**
+   * رسالة نجاح
+   */
+  success(message, title = "✅ تم بنجاح") {
+    return this.formatMessage(message, {
+      title: title,
+      type: "success"
+    });
+  }
+
+  /**
+   * رسالة خطأ
+   */
+  error(message, title = "❌ خطأ") {
+    return this.formatMessage(message, {
+      title: title,
+      type: "error"
+    });
+  }
+
+  /**
+   * رسالة معلومات
+   */
+  info(message, title = "ℹ️ معلومة") {
+    return this.formatMessage(message, {
+      title: title,
+      type: "info"
+    });
+  }
+
+  /**
+   * رسالة تحذير
+   */
+  warning(message, title = "⚠️ تحذير") {
+    return this.formatMessage(message, {
+      title: title,
+      type: "warning"
+    });
+  }
+
+  /**
+   * قائمة منسقة
+   */
+  list(items, title = "📋 القائمة") {
+    const listContent = items.map((item, index) => 
+      `▫️ ${index + 1}. ${item}`
+    ).join("\n");
+    
+    return this.formatMessage(listContent, {
+      title: title,
+      type: "list"
+    });
+  }
+
+  /**
+   * رسالة بسيطة بدون تنسيق
+   */
+  simple(message) {
+    return this.formatMessage(message, {
+      type: "simple",
+      showName: false,
+      footer: false,
+      timestamp: false
+    });
+  }
+
+  /**
+   * رسالة مع إيموجي مخصص
+   */
+  withEmoji(message, emoji, title = null) {
+    const actualTitle = title ? `${emoji} ${title}` : null;
+    return this.formatMessage(message, {
+      title: actualTitle,
+      type: "emoji"
+    });
+  }
+
+  /**
+   * رسالة للأوامر
+   */
+  commandHelp(command, description, usage, examples = []) {
+    let content = `*📝 الوصف:* ${description}\n\n`;
+    content += `*⚙️ الاستخدام:* \`${config.prefix}${command} ${usage}\`\n\n`;
+    
+    if (examples.length > 0) {
+      content += `*💡 أمثلة:*\n`;
+      examples.forEach((example, index) => {
+        content += `  ${index + 1}. \`${config.prefix}${example}\`\n`;
+      });
+    }
+    
+    return this.formatMessage(content, {
+      title: `🎮 أمر: ${command}`,
+      type: "help"
+    });
+  }
+
+  /**
+   * تنسيق لرسائل الوسائط (الصور/الفيديوهات)
+   */
+  mediaCaption(text, mediaType = "صورة") {
+    return this.formatMessage(text, {
+      title: `${this.botEmoji} ${mediaType} من ${this.botName}`,
+      type: "media",
+      showName: false
+    });
+  }
+
+  /**
+   * تسجيل الرسائل في الكونسول
+   */
+  logSentMessage(type, to, contentPreview) {
+    const time = new Date().toLocaleTimeString();
+    const preview = contentPreview.length > 50 
+      ? contentPreview.substring(0, 50) + "..." 
+      : contentPreview;
+    
+    console.log(
+      chalk.cyan(`[${time}]`),
+      chalk.green(`📤 ${type.toUpperCase()} →`),
+      chalk.yellow(to.substring(0, 15) + "..."),
+      chalk.gray(`"${preview}"`)
+    );
+  }
+
+  /**
+   * 📥 تسجيل الرسائل الواردة (الجديد)
+   */
+  logReceivedMessage(from, contentPreview) {
+    const time = new Date().toLocaleTimeString();
+    const preview = contentPreview.length > 50 
+      ? contentPreview.substring(0, 50) + "..." 
+      : contentPreview;
+    
+    console.log(
+      chalk.cyan(`[${time}]`),
+      chalk.blue(`📥 ←`),
+      chalk.magenta(from.substring(0, 15) + "..."),
+      chalk.gray(`"${preview}"`)
+    );
+  }
+}
+
+export default new MessageFormatter();
